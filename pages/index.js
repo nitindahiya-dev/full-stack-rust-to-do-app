@@ -1,27 +1,33 @@
 import React, { useState, useEffect } from "react";
-import { MdDelete, MdEdit, MdConfirmationNumber } from "react-icons/md";
+import { MdDelete, MdEdit } from "react-icons/md";
 import axios from "axios";
 import { format } from "date-fns";
 
 const Index = () => {
-  const [editText, setEditText] = useState("");
   const [todos, setTodos] = useState([]);
   const [todosCopy, setTodosCopy] = useState([]);
   const [todoInput, setTodoInput] = useState("");
   const [editIndex, setEditIndex] = useState(-1);
-  const [searchInput, setSearchInput] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [count, setCount] = useState(0);
   const [searchItem, setSearchItem] = useState("");
+  const [search, setSearch] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     fetchTodo();
-  }, [count]);
+  }, []);
 
-  const editTodo = (index) => {
-    setTodoInput(todos[index].title);
-    setEditIndex(index);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchItem), 1000);
+    return () => clearTimeout(timer);
+  }, [searchItem]);
+
+  useEffect(() => {
+    if (search) {
+      onHandleSearch(search);
+    } else {
+      onClearSearch();
+    }
+  }, [search]);
 
   const fetchTodo = async () => {
     try {
@@ -34,14 +40,21 @@ const Index = () => {
   };
 
   const addTodo = async () => {
+    if (!todoInput.trim()) {
+      setErrorMessage("Please enter a todo item.");
+      return;
+    }
+    setErrorMessage("");
+
     try {
       if (editIndex === -1) {
         const response = await axios.post("http://127.0.0.1:8000/todos", {
           title: todoInput,
           completed: false,
         });
-        setTodos((prevTodos) => [...prevTodos, response.data]);
-        setTodosCopy((prevTodos) => [...prevTodos, response.data]);
+        const newTodo = response.data;
+        setTodos((prevTodos) => [...prevTodos, newTodo]);
+        setTodosCopy((prevTodos) => [...prevTodos, newTodo]);
         setTodoInput("");
       } else {
         const todoToUpdate = { ...todos[editIndex], title: todoInput };
@@ -49,9 +62,12 @@ const Index = () => {
           `http://127.0.0.1:8000/todos/${todoToUpdate.id}`,
           todoToUpdate
         );
-        const updatedTodos = [...todos];
-        updatedTodos[editIndex] = response.data;
+        const updatedTodo = response.data;
+        const updatedTodos = todos.map((todo, index) =>
+          index === editIndex ? updatedTodo : todo
+        );
         setTodos(updatedTodos);
+        setTodosCopy(updatedTodos);
         setEditIndex(-1);
         setTodoInput("");
       }
@@ -63,7 +79,8 @@ const Index = () => {
   const deleteTodo = async (id) => {
     try {
       await axios.delete(`http://127.0.0.1:8000/todos/${id}`);
-      setTodos(todos.filter((todo) => todo.id !== id));
+      setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
+      setTodosCopy((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
     } catch (error) {
       console.error("Error deleting todo:", error);
     }
@@ -72,6 +89,7 @@ const Index = () => {
   const toggleCompleted = async (id) => {
     try {
       const todoToUpdate = todos.find((todo) => todo.id === id);
+      if (!todoToUpdate) return;
       const updatedTodo = {
         ...todoToUpdate,
         completed: !todoToUpdate.completed,
@@ -84,16 +102,21 @@ const Index = () => {
         todo.id === id ? response.data : todo
       );
       setTodos(updatedTodos);
+      setTodosCopy(updatedTodos);
     } catch (error) {
       console.error("Error toggling todo completion:", error);
     }
   };
 
-  const searchTodo = () => {
-    const results = todos.filter((todo) =>
-      todo.title.toLowerCase().includes(searchInput.toLowerCase())
+  const onHandleSearch = (value) => {
+    const filteredTodo = todosCopy.filter(({ title }) =>
+      title.toLowerCase().includes(value.toLowerCase())
     );
-    setSearchResults(results);
+    setTodos(filteredTodo);
+  };
+
+  const onClearSearch = () => {
+    setTodos(todosCopy);
   };
 
   const formatDate = (dateString) => {
@@ -108,6 +131,13 @@ const Index = () => {
     }
   };
 
+  const editTodo = (index) => {
+    if (index >= 0 && index < todos.length) {
+      setTodoInput(todos[index].title);
+      setEditIndex(index);
+    }
+  };
+
   return (
     <div className="main-body">
       <div className="todo-app">
@@ -119,7 +149,7 @@ const Index = () => {
             value={todoInput}
             onChange={(e) => setTodoInput(e.target.value)}
           />
-          <button onClick={() => addTodo()} className="add">
+          <button onClick={addTodo} className="add">
             {editIndex === -1 ? "Add" : "Update"}
           </button>
           <input
@@ -129,26 +159,42 @@ const Index = () => {
             value={searchItem}
             onChange={(e) => setSearchItem(e.target.value)}
           />
-          <button onClick={searchTodo} className="">
-            Search
-          </button>
+          {errorMessage && (
+            <div className="error-message">{errorMessage}</div>
+          )}
         </div>
         <div className="todos">
           <ul className="todo-list">
-            {(searchResults.length > 0 ? searchResults : todos).map(
-              (todo, index) => (
-                <div key={todo.id} className="todo-item">
-                  <span>{todo.title}</span>
-                  <span>{formatDate(todo.created_at)}</span>
-                  <MdEdit onClick={() => editTodo(index)} />
-                  <MdDelete onClick={() => deleteTodo(todo.id)} />
-                  <MdConfirmationNumber
-                    onClick={() => toggleCompleted(todo.id)}
+            {todos.map((todo) => (
+              <li key={todo.id} className="li">
+                <label htmlFor="" className="form-check-label">
+                  <input
+                    type="checkbox"
+                    checked={todo.completed || false}
+                    onChange={() => toggleCompleted(todo.id)}
                   />
-                </div>
-              )
-            )}
+                </label>
+                <span className="todo-text">
+                  {`${todo.title} ${todo.created_at ? formatDate(todo.created_at) : ""}`}
+                </span>
+                <span className="span-button" onClick={() => deleteTodo(todo.id)}>
+                  <MdDelete />
+                </span>
+                <span className="span-button" onClick={() => editTodo(todos.findIndex(t => t.id === todo.id))}>
+                  <MdEdit />
+                </span>
+              </li>
+            ))}
           </ul>
+          {todos.length === 0 && (
+            <div className="">
+              <h1 className="not-found not-found-top">
+                Please Enter Something..!!
+              </h1>
+              <br />
+              <h1 className="not-found">NOT FOUND</h1>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -260,11 +260,24 @@ body {
 }
 .not-found {
   color: #fff;
-  top: 60%;
+  top: 50%;
   position: absolute;
   left: 50%;
   transform: translate(-50%, -50%);
   opacity: 30%;
+}
+
+.not-found-top {
+  top: 45%;
+  font-size: 40px;  
+}
+
+.error-message{
+  margin-top: 20px;
+  font-size: 20px;
+  color: red;
+  margin-bottom: -30px;
+  margin-left: 10px;
 }
 
 /* //RESPONSIVE */

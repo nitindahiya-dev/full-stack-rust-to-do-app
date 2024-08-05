@@ -39,7 +39,9 @@ const Index = () => {
     }
   };
 
-  const addTodo = async () => {
+  const addTodo = async (event) => {
+    event.preventDefault();
+
     if (!todoInput.trim()) {
       setErrorMessage("Please enter a todo item.");
       return;
@@ -48,28 +50,18 @@ const Index = () => {
 
     try {
       if (editIndex === -1) {
-        const response = await axios.post("http://127.0.0.1:8000/todos", {
+        await axios.post("http://127.0.0.1:8000/todos", {
           title: todoInput,
           completed: false,
         });
-        const newTodo = response.data;
-        setTodos((prevTodos) => [...prevTodos, newTodo]);
-        setTodosCopy((prevTodos) => [...prevTodos, newTodo]);
-        setTodoInput("");
+        window.location.reload(); // Refresh the page after adding a todo
       } else {
         const todoToUpdate = { ...todos[editIndex], title: todoInput };
-        const response = await axios.put(
+        await axios.put(
           `http://127.0.0.1:8000/todos/${todoToUpdate.id}`,
           todoToUpdate
         );
-        const updatedTodo = response.data;
-        const updatedTodos = todos.map((todo, index) =>
-          index === editIndex ? updatedTodo : todo
-        );
-        setTodos(updatedTodos);
-        setTodosCopy(updatedTodos);
-        setEditIndex(-1);
-        setTodoInput("");
+        window.location.reload(); // Refresh the page after updating a todo
       }
     } catch (error) {
       console.error("Error adding/updating todo:", error);
@@ -94,15 +86,8 @@ const Index = () => {
         ...todoToUpdate,
         completed: !todoToUpdate.completed,
       };
-      const response = await axios.put(
-        `http://127.0.0.1:8000/todos/${updatedTodo.id}`,
-        updatedTodo
-      );
-      const updatedTodos = todos.map((todo) =>
-        todo.id === id ? response.data : todo
-      );
-      setTodos(updatedTodos);
-      setTodosCopy(updatedTodos);
+      await axios.put(`http://127.0.0.1:8000/todos/${updatedTodo.id}`, updatedTodo);
+      window.location.reload();
     } catch (error) {
       console.error("Error toggling todo completion:", error);
     }
@@ -159,10 +144,10 @@ const Index = () => {
             value={searchItem}
             onChange={(e) => setSearchItem(e.target.value)}
           />
-          {errorMessage && (
-            <div className="error-message">{errorMessage}</div>
-          )}
         </div>
+        {errorMessage && (
+          <div className="error-message">{errorMessage}</div>
+        )}
         <div className="todos">
           <ul className="todo-list">
             {todos.map((todo) => (
@@ -175,12 +160,17 @@ const Index = () => {
                   />
                 </label>
                 <span className="todo-text">
-                  {`${todo.title} ${todo.created_at ? formatDate(todo.created_at) : ""}`}
+                  {`${todo.title} ${
+                    todo.created_at ? formatDate(todo.created_at) : ""
+                  }`}
                 </span>
                 <span className="span-button" onClick={() => deleteTodo(todo.id)}>
                   <MdDelete />
                 </span>
-                <span className="span-button" onClick={() => editTodo(todos.findIndex(t => t.id === todo.id))}>
+                <span
+                  className="span-button"
+                  onClick={() => editTodo(todos.findIndex((t) => t.id === todo.id))}
+                >
                   <MdEdit />
                 </span>
               </li>
